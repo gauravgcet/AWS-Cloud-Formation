@@ -28,7 +28,6 @@ Parameters:
     Default: 0.0.0.0/0
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
-
 Mappings:
   RegionMap:
     eu-west-2:
@@ -41,7 +40,6 @@ Mappings:
       AMI: ami-72621c20
     ap-northeast-1:
       AMI: ami-8e08a38f
-
 Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -49,15 +47,24 @@ Resources:
       InstanceType:
         Ref: InstanceType
       SecurityGroups:
-        - Ref: InstanceSecurityGroup
+        - Ref: SSHSecurityGroup
+        - Ref: SpringBootSecurityGroup
       KeyName:
         Ref: KeyName
+      IamInstanceProfile:
+        Ref: InstanceProfile
       ImageId : !FindInMap
       - RegionMap
       - !Ref 'AWS::Region'
       - AMI
-
-  InstanceSecurityGroup:
+      UserData:
+        "Fn::Base64":
+          !Sub |
+            #!/bin/bash
+            yum install java
+            yum update -y
+            java -version > /var/tmp/ver.txt
+  SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Enable SSH access via port 22
@@ -67,6 +74,22 @@ Resources:
           ToPort: '22'
           CidrIp:
             Ref: SSHLocation
+  SpringBootSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP port 8080
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '8080'
+          ToPort: '8080'
+          CidrIp:
+            Ref: SSHLocation
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+       - S3-admin-access
 Outputs:
   InstanceId:
     Description: InstanceId of the newly created EC2 instance
