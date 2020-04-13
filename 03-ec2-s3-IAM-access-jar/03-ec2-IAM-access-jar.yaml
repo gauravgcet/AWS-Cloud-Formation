@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'abs'
+Description: 'template to create ec2 and security group and IAM role to access S3'
 Parameters:
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
@@ -56,9 +56,9 @@ Resources:
         "Fn::Base64":
           !Sub |
             #!/bin/bash
-            yum install java
             yum update -y
-            java -version > /var/tmp/ver.txt
+            aws s3 cp s3://home-test-2018/jar/hello.jar /var/tmp/hello.jar
+            java /var/tmp/hello.jar
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
