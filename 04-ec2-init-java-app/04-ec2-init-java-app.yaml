@@ -43,6 +43,8 @@ Resources:
               command: "ln -sf /tmp/hello.sh /etc/init.d/hello"
             changeowner:
               command: "chmod 744 /etc/init.d/hello"
+            startservice:
+              command: "service hello start &"
     Properties:
       InstanceType:
         Ref: InstanceType
@@ -60,7 +62,7 @@ Resources:
           !Sub |
             #!/bin/bash -xe
             /opt/aws/bin/cfn-init --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstance
-            service hello start
+            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstance
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:

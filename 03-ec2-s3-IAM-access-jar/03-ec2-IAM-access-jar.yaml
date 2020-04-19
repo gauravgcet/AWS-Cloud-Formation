@@ -58,7 +58,7 @@ Resources:
             #!/bin/bash
             yum update -y
             aws s3 cp s3://home-test-2018/jar/hello.jar /var/tmp/hello.jar
-            java /var/tmp/hello.jar
+            java -jar /var/tmp/hello.jar &
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:

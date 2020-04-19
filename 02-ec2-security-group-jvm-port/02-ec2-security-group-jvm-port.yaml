@@ -27,14 +27,6 @@ Mappings:
   RegionMap:
     eu-west-2:
       AMI: ami-00a1896be20551dc8
-    us-west-1:
-      AMI: ami-655a0a20
-    eu-west-1:
-      AMI: ami-7fd4e10b
-    ap-southeast-1:
-      AMI: ami-72621c20
-    ap-northeast-1:
-      AMI: ami-8e08a38f
 Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
