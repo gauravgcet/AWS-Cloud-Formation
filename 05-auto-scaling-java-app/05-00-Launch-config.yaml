@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'template to create ec2 and security group and IAM role to access S3'
+Description: 'Launch config template, to verify launch configurations'
 Parameters:
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
@@ -27,17 +27,17 @@ Mappings:
     eu-west-2:
       AMI: ami-00a1896be20551dc8
 Resources:
-  ApplicationInstance:
-    Type: AWS::EC2::Instance
+  ApplicationInstanceLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
     Metadata:
       AWS::CloudFormation::Init:
         config:
           packages:
-              yum:
-                httpd: []
+            yum:
+              httpd: []
           sources:
-              /var/tmp/: "https://home-test-2018.s3.eu-west-2.amazonaws.com/jar/hello.jar.zip"
-              /tmp/: "https://home-test-2018.s3.eu-west-2.amazonaws.com/jar/hello.sh.zip"
+            /var/tmp/: "https://home-test-2018.s3.eu-west-2.amazonaws.com/jar/hello.jar.zip"
+            /tmp/: "https://home-test-2018.s3.eu-west-2.amazonaws.com/jar/hello.sh.zip"
           commands:
             alnservice:
               command: "ln -sf /tmp/hello.sh /etc/init.d/hello"
@@ -53,17 +53,17 @@ Resources:
         - Ref: SpringBootSecurityGroup
       KeyName:
         Ref: KeyName
-      ImageId : !FindInMap
-      - RegionMap
-      - !Ref 'AWS::Region'
-      - AMI
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
       UserData:
         Fn::Base64:
           !Sub |
-            #!/bin/bash -xe
-            /opt/aws/bin/cfn-init --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstance
-            # Signal the status from cfn-init
-            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstance
+          #!/bin/bash -xe
+          /opt/aws/bin/cfn-init --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstanceLaunchConfig
+          # Signal the status from cfn-init
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstanceLaunchConfig
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -84,26 +84,4 @@ Resources:
           ToPort: '8080'
           CidrIp:
             Ref: SSHLocation
-Outputs:
-  InstanceId:
-    Description: InstanceId of the newly created EC2 instance
-    Value:
-      Ref: ApplicationInstance
-  AZ:
-    Description: Availability Zone of the newly created EC2 instance
-    Value:
-      Fn::GetAtt:
-        - ApplicationInstance
-        - AvailabilityZone
-  PublicDNS:
-    Description: Public DNSName of the newly created EC2 instance
-    Value:
-      Fn::GetAtt:
-        - ApplicationInstance
-        - PublicDnsName
-  PublicIP:
-    Description: Public IP address of the newly created EC2 instance
-    Value:
-      Fn::GetAtt:
-        - ApplicationInstance
-        - PublicIp
+
