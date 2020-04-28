@@ -53,6 +53,7 @@ Resources:
     Properties:
       VpcId: !Ref AVPC
       CidrBlock: 10.1.10.0/24
+      MapPublicIpOnLaunch: true
       AvailabilityZone: 'eu-west-2a'
       Tags:
         - Key: Name
@@ -88,7 +89,7 @@ Resources:
     Properties:
       VpcId: !Ref AVPC
       CidrBlock: 10.1.50.0/24
-      AvailabilityZone: 'eu-west-2a'
+      AvailabilityZone: 'eu-west-2b'
       Tags:
         - Key: Name
           Value: !Join ['', [!Ref "AWS::StackName", " backend subnet" ]]
@@ -130,4 +131,101 @@ Resources:
     Type: AWS::EC2::EIP
     Properties:
       Domain: VPC
+  ApplicationInstanceLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+          sources:
+            /var/tmp/: "https://home-test-2018.s3.eu-west-2.amazonaws.com/jar/hello.jar.zip"
+            /tmp/: "https://home-test-2018.s3.eu-west-2.amazonaws.com/jar/hello.sh.zip"
+          commands:
+            alnservice:
+              command: "ln -sf /tmp/hello.sh /etc/init.d/hello"
+            changeowner:
+              command: "chmod 744 /etc/init.d/hello"
+            startservice:
+              command: "service hello start &"
+    Properties:
+      InstanceType:
+        Ref: InstanceType
+      SecurityGroups:
+        - Ref: SSHSecurityGroup
+        - Ref: SpringBootSecurityGroup
+      KeyName:
+        Ref: KeyName
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
+      UserData:
+        Fn::Base64:
+          !Sub |
+          #!/bin/bash -xe
+          /opt/aws/bin/cfn-init --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstanceLaunchConfig
+          # Signal the status from cfn-init
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource ApplicationInstanceLaunchConfig
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      VpcId: !Ref AVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp:
+            Ref: SSHLocation
+  SpringBootSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP port 8080
+      VpcId: !Ref AVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '8080'
+          ToPort: '8080'
+          CidrIp:
+            Ref: SSHLocation
+  # SG for Loadbalancer
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP port 80
+      VpcId: !Ref AVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp:
+            Ref: SSHLocation
 
+  # classic load balancer and scaling group
+  AppLoadBalancer:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    DependsOn: AttachGateway
+    Properties:
+      Subnets:
+        - !Ref FrontendSubnet
+      Listeners:
+        - LoadBalancerPort: '80'
+          InstancePort: '8080'
+          Protocol: 'HTTP'
+      SecurityGroups:
+        - Ref: LoadBalancerSecurityGroup
+
+  # Auto Scaling group, it will be Frontend Subnet
+  AppScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchConfigurationName:
+        Ref: ApplicationInstanceLaunchConfig
+      MinSize: '1'
+      MaxSize: '2'
+      LoadBalancerNames:
+        - Ref: AppLoadBalancer
+      VPCZoneIdentifier:
+        - !Ref FrontendSubnet
